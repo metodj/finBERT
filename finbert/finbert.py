@@ -580,7 +580,7 @@ class FinBert(object):
         return evaluation_df
 
 
-def predict(text, model, write_to_csv=False, path=None):
+def predict(text, news_id, model, write_to_csv=False, path=None):
     """
     Predict sentiments of sentences in a given text. The function first tokenizes sentences, make predictions and write
     results.
@@ -602,8 +602,9 @@ def predict(text, model, write_to_csv=False, path=None):
 
     label_list = ['positive', 'negative', 'neutral']
     label_dict = {0: 'positive', 1: 'negative', 2: 'neutral'}
-    result = pd.DataFrame(columns=['sentence','logit','prediction','sentiment_score'])
-    for batch in chunks(sentences, 5):
+    # result = pd.DataFrame(columns=['sentence', 'logit', 'prediction', 'sentiment_score'])
+    result = []
+    for batch in chunks(sentences, 20):
 
         examples = [InputExample(str(i), sentence) for i, sentence in enumerate(batch)]
 
@@ -616,19 +617,21 @@ def predict(text, model, write_to_csv=False, path=None):
         with torch.no_grad():
             logits = model(all_input_ids, all_segment_ids, all_input_mask)
             logits = softmax(np.array(logits))
-            sentiment_score = pd.Series(logits[:,0] - logits[:,1])
+            sentiment_score = pd.Series(logits[:, 0] - logits[:, 1])
             predictions = np.squeeze(np.argmax(logits, axis=1))
 
-            batch_result = {'sentence': batch,
+            batch_result = {'news id': news_id,
+                            'sentence': batch,
                             'logit': list(logits),
                             'prediction': predictions,
-                            'sentiment_score':sentiment_score}
+                            'sentiment_score': sentiment_score}
             
-            batch_result = pd.DataFrame(batch_result)
-            result = pd.concat([result,batch_result], ignore_index=True)
+            # batch_result = pd.DataFrame(batch_result)
+            # result = pd.concat([result, batch_result], ignore_index=True)
+            result.append(batch_result)
 
-    result['prediction'] = result.prediction.apply(lambda x: label_dict[x])
+    # result['prediction'] = result.prediction.apply(lambda x: label_dict[x])
     if write_to_csv:
-        result.to_csv(path,sep=',', index=False)
+        result.to_csv(path, sep=',', index=False)
 
     return result
