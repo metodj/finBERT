@@ -34,3 +34,5 @@ venv.bak/
 .mypy_cache/
 #pycharm
 workspace.xml
+models/
+

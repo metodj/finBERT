@@ -69,5 +69,3 @@ if __name__=="__main__":
     print("TOTAL time: {}".format(round(end-start, 2)))
 
 
-
-
