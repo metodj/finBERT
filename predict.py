@@ -10,6 +10,7 @@ import pandas as pd
 import time
 import pickle
 import multiprocessing as mp
+import gc
 
 # globals
 model = None
@@ -20,24 +21,22 @@ parser.add_argument('--model_path', type=str, help='Path to classifier model')
 args = parser.parse_args()
 
 
-def predict_batch(batch_id, data_path="CC_data/", save_path="output/"):
+def predict_batch(N, data_path="CC_data/", save_path="output/"):
     model = BertForSequenceClassification.from_pretrained(args.model_path, num_labels=3, cache_dir=None)
-    # sentence_pred_df = pd.DataFrame()
     sentence_pred_df = []
-    news_id = 0
 
     start_main = time.time()
 
-    data = pickle.load(open(data_path + "BERTnews{}.p".format(batch_id), "rb"))
+    data = pickle.load(open(data_path + "BERTnews_all.p", "rb"))
     data = data.reset_index(drop=True)
 
-    for i in range(len(data)):
+    # for i in range(len(data)):
+    for i in range(N):
         pred = predict(data.loc[i]['text'], data.loc[i]['index'], model, write_to_csv=False)
         sentence_pred_df.extend(pred)
-        news_id += 1
 
     sentence_pred_df = pd.DataFrame.from_dict(sentence_pred_df)
-    sentence_pred_df.to_csv(save_path + "BERTnews_preds_{}.csv".format(batch_id))
+    sentence_pred_df.to_csv(save_path + "BERTnews_preds.csv")
 
     end_main = time.time()
     print("TIME for batch_id: {}".format(round(end_main - start_main, 2)))
@@ -55,29 +54,34 @@ def predict_news(x):
     return pred
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
 
     # ========= single prediction =========
     # start = time.time()
-    # predict_batch(0)
+    # predict_batch(30)
     # end = time.time()
     # print("TOTAL time: {}".format(round(end-start, 2)))
 
     # ======== New multiprocessing ===========
 
-    # N = 539317
-    N = 5000
-    # N = 30
+    N_start = 0
+    # N_end = 539317
+    # N_end = 5000
+    # N_end = 30
+    N_end = 100000
 
     # we parse data to list of tuples to avoid reloading entire data for every subprocess
     data = pickle.load(open("CC_data/BERTnews_all.p", "rb"))
-    data = [tuple(x) for x in data.head(N).itertuples(index=False)]
+    data_batch = [tuple(x) for x in data.loc[N_start:N_end].itertuples(index=False)]
+
+    del data
+    gc.collect()
 
     pool = mp.Pool(initializer=init_bert)
     print("Number of cores: ", os.cpu_count())
 
     start = time.time()
-    res = pool.map(predict_news, data)
+    res = pool.map(predict_news, data_batch)
     end = time.time()
     print("TOTAL time: {}".format(round(end-start, 2)))
 
